@@ -1,4 +1,6 @@
+from collections import defaultdict
 import math
+import heapq
 from typing import Dict, List, Tuple
 import time
 
@@ -39,66 +41,87 @@ class Graph:
 
     def shortest_path(self) -> Tuple[float, List[int], int]:
         """
-        Bellman–Ford on an undirected graph with weight D(u,v,k).
-        Returns (distance, path, visited_count).
-        - distance = dist[t] or math.inf if unreachable
-        - path = sequence of vertex‐IDs from s to t (or [] if none)
-        - visited_count = number of vertices with finite dist
+        A* search from self.s to self.t on the undirected graph.
+        Uses D(u,v,k) as edge‐weight and h(u)=D(u,self.t,k) as heuristic.
+        Returns (distance, path_list, visited_count).
         """
-        # 1. shortcut to coords
-        coords = self.vertices
+        # 1. coordinate lookup
+        coords: Dict[int, Tuple[float, float]] = self.vertices
 
-        # 2. D(u,v,k) as specified
+        # 2. weight D(u,v) as before
         def D(u: int, v: int) -> float:
             x1, y1 = coords[u]
             x2, y2 = coords[v]
             dx, dy = abs(x1 - x2), abs(y1 - y2)
-            if self.k == 0:
+            k = self.k
+            if k == 0:
                 return 1.0
-            if self.k < 0 or math.isinf(self.k):
+            if k < 0 or math.isinf(k):
                 return float(max(dx, dy))
-            return (dx**self.k + dy**self.k) ** (1.0 / self.k)
+            return (dx**k + dy**k) ** (1.0 / k)
 
-        # 3. init dist & predecessor
-        dist: Dict[int, float] = {v: math.inf for v in coords}
-        pred: Dict[int, int] = {v: None for v in coords}
-        dist[self.s] = 0.0
+        # 3. heuristic h(u) = D(u, t)
+        def h(u: int) -> float:
+            return D(u, self.t)
 
-        # 4. relax edges up to n-1 times
-        for _ in range(self.n - 1):
-            updated = False
-            for u, v in self.edges:
-                w = D(u, v)
-                if dist[u] + w < dist[v]:
-                    dist[v] = dist[u] + w
-                    pred[v] = u
-                    updated = True
-                if dist[v] + w < dist[u]:
-                    dist[u] = dist[v] + w
-                    pred[u] = v
-                    updated = True
-            if not updated:
+        # 4. build adjacency list (undirected)
+        nbrs: Dict[int, List[int]] = defaultdict(list)
+        for u, v in self.edges:
+            nbrs[u].append(v)
+            nbrs[v].append(u)
+
+        # 5. A* structures
+        g_score: Dict[int, float] = {v: math.inf for v in coords}
+        f_score: Dict[int, float] = {v: math.inf for v in coords}
+        came_from: Dict[int, int] = {}
+        open_heap: List[Tuple[float, int]] = []
+
+        # init
+        g_score[self.s] = 0.0
+        f_score[self.s] = h(self.s)
+        heapq.heappush(open_heap, (f_score[self.s], self.s))
+
+        closed: set[int] = set()
+        visited_count = 0
+
+        while open_heap:
+            f_u, u = heapq.heappop(open_heap)
+            if u in closed:
+                continue
+
+            closed.add(u)
+            visited_count += 1
+
+            # goal check
+            if u == self.t:
                 break
 
-        # 5. negative‐cycle check (should never fire since k>=-1 & all weights>=0)
-        for u, v in self.edges:
-            w = D(u, v)
-            if dist[u] + w < dist[v] or dist[v] + w < dist[u]:
-                raise ValueError("Negative‐weight cycle detected")
+            # relax neighbors
+            for v in nbrs[u]:
+                if v in closed:
+                    continue
+                tentative_g = g_score[u] + D(u, v)
+                if tentative_g < g_score[v]:
+                    came_from[v] = u
+                    g_score[v] = tentative_g
+                    f_score[v] = tentative_g + h(v)
+                    heapq.heappush(open_heap, (f_score[v], v))
 
-        # 6. reconstruct path s→t
+        # reconstruct path
         path: List[int] = []
-        if dist[self.t] < math.inf:
+        if self.t in came_from or self.s == self.t:
             cur = self.t
-            while cur is not None:
+            path.append(cur)
+            while cur != self.s:
+                cur = came_from[cur]
                 path.append(cur)
-                cur = pred[cur]
             path.reverse()
 
-        # 7. count reachable
-        visited_count = sum(1 for d in dist.values() if d < math.inf)
+        dist_t = g_score[self.t]
+        if math.isinf(dist_t):
+            path = []
 
-        return dist[self.t], path, visited_count
+        return dist_t, path, visited_count
 
 
 def main():
