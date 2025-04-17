@@ -132,9 +132,9 @@ def main():
     distance, path, visited = graph.shortest_path()
     end = time.perf_counter()
 
-    print(f"visited = {visited}")
-    print(f"distance = {distance}")
-    print(f"path = {path}")
+    print(f"{visited}")
+    print(f"{distance}")
+    print(f"{path}")
     print(f"elapsed = {end - start:.6f} seconds")
 
 
