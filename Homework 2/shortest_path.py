@@ -25,14 +25,13 @@ class Graph:
         """
         g = cls()
         with open(filename, "r") as f:
-            # read header
             line = f.readline().strip()
             g.n, g.m, g.k, g.s, g.t = map(int, line.split())
-            # read vertices
+
             for _ in range(g.n):
                 vid, x, y = map(float, f.readline().split())
                 g.vertices[int(vid)] = (x, y)
-            # read edges
+
             for _ in range(g.m):
                 u, v = map(int, f.readline().split())
                 g.edges.append((u, v))
@@ -57,9 +56,7 @@ class Graph:
             if self.k == 0:
                 return 1.0
             if self.k < 0 or math.isinf(self.k):
-                # k = -1 or ∞
                 return float(max(dx, dy))
-            # k > 0
             return (dx**self.k + dy**self.k) ** (1.0 / self.k)
 
         # 3. init dist & predecessor
@@ -72,12 +69,10 @@ class Graph:
             updated = False
             for u, v in self.edges:
                 w = D(u, v)
-                # relax u→v
                 if dist[u] + w < dist[v]:
                     dist[v] = dist[u] + w
                     pred[v] = u
                     updated = True
-                # relax v→u (undirected)
                 if dist[v] + w < dist[u]:
                     dist[u] = dist[v] + w
                     pred[u] = v
