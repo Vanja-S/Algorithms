@@ -13,7 +13,7 @@ class Graph:
         self.s = 0  # source id
         self.t = 0  # target id
         # map vertex_id -> (x,y)
-        self.vertices: Dict[int, Tuple[float, float]] = {}
+        self.vertices: Dict[str, Tuple[float, float]] = {}
         # list of undirected edges
         self.edges: List[Tuple[int, int]] = []
 
@@ -39,17 +39,17 @@ class Graph:
                 g.edges.append((u, v))
         return g
 
-    def shortest_path(self) -> Tuple[float, List[int], int]:
+    def shortest_path(self) -> Tuple[float, List[str], int]:
         """
-        A* search from self.s to self.t on the undirected graph.
-        Uses D(u,v,k) as edge‐weight and h(u)=D(u,self.t,k) as heuristic.
-        Returns (distance, path_list, visited_count).
+        A* from self.s to self.t.  Returns (distance, path, visited_count).
+        - distance: g(self.t) or math.inf if no path
+        - path: list of vertex-ids from s to t (empty if unreachable)
+        - visited_count: number of distinct nodes popped from the open set
         """
-        # 1. coordinate lookup
-        coords: Dict[int, Tuple[float, float]] = self.vertices
+        coords = self.vertices
 
-        # 2. weight D(u,v) as before
-        def D(u: int, v: int) -> float:
+        # 1. edge‐weight D(u,v,k)
+        def D(u: str, v: str) -> float:
             x1, y1 = coords[u]
             x2, y2 = coords[v]
             dx, dy = abs(x1 - x2), abs(y1 - y2)
@@ -60,30 +60,30 @@ class Graph:
                 return float(max(dx, dy))
             return (dx**k + dy**k) ** (1.0 / k)
 
-        # 3. heuristic h(u) = D(u, t)
-        def h(u: int) -> float:
+        # 2. heuristic h(u) = D(u, t)
+        def h(u: str) -> float:
             return D(u, self.t)
 
-        # 4. build adjacency list (undirected)
-        nbrs: Dict[int, List[int]] = defaultdict(list)
+        # 3. build undirected adjacency list
+        nbrs: Dict[str, List[str]] = defaultdict(list)
         for u, v in self.edges:
             nbrs[u].append(v)
             nbrs[v].append(u)
 
-        # 5. A* structures
-        g_score: Dict[int, float] = {v: math.inf for v in coords}
-        f_score: Dict[int, float] = {v: math.inf for v in coords}
-        came_from: Dict[int, int] = {}
-        open_heap: List[Tuple[float, int]] = []
+        # 4. A* bookkeeping
+        g_score: Dict[str, float] = {v: math.inf for v in coords}
+        f_score: Dict[str, float] = {v: math.inf for v in coords}
+        came_from: Dict[str, str] = {}
 
-        # init
+        open_heap: List[Tuple[float, str]] = []
         g_score[self.s] = 0.0
         f_score[self.s] = h(self.s)
         heapq.heappush(open_heap, (f_score[self.s], self.s))
 
-        closed: set[int] = set()
+        closed: set[str] = set()
         visited_count = 0
 
+        # 5. main loop
         while open_heap:
             f_u, u = heapq.heappop(open_heap)
             if u in closed:
@@ -92,11 +92,9 @@ class Graph:
             closed.add(u)
             visited_count += 1
 
-            # goal check
             if u == self.t:
                 break
 
-            # relax neighbors
             for v in nbrs[u]:
                 if v in closed:
                     continue
@@ -107,35 +105,31 @@ class Graph:
                     f_score[v] = tentative_g + h(v)
                     heapq.heappush(open_heap, (f_score[v], v))
 
-        # reconstruct path
-        path: List[int] = []
-        if self.t in came_from or self.s == self.t:
+        # 6. reconstruct path
+        path: List[str] = []
+        if g_score[self.t] < math.inf:
             cur = self.t
-            path.append(cur)
             while cur != self.s:
-                cur = came_from[cur]
                 path.append(cur)
+                cur = came_from[cur]
+            path.append(self.s)
             path.reverse()
-
-        dist_t = g_score[self.t]
-        if math.isinf(dist_t):
+        else:
+            # unreachable
             path = []
 
-        return dist_t, path, visited_count
+        return g_score[self.t], path, visited_count
 
 
 def main():
     graph = Graph.read_graph_from_file("5000.txt")
     print(graph.n, graph.m, graph.k, graph.s, graph.t, "\n")
 
-    start = time.perf_counter()
     distance, path, visited = graph.shortest_path()
-    end = time.perf_counter()
 
     print(f"{visited}")
     print(f"{distance}")
     print(f"{path}")
-    print(f"elapsed = {end - start:.6f} seconds")
 
 
 if __name__ == "__main__":
